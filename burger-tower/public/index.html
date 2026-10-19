@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>버거 타워</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+  /* Layout: 세로형 무대 하나. 위에 제목과 점수판, 가운데 게임 화면, 아래에 재료 안내. 슬레이트 블루 바탕에 낮 시간 식당 장면. 단일 테마. */
+  [hidden] { display: none !important; }
+  img { max-width: 100%; }
+  :root {
+    color-scheme: dark;
+    --bg: #131f2b;
+    --panel: #1c2c3c;
+    --line: #314659;
+    --fg: #eef3f8;
+    --muted: #9fb2c4;
+    --ketchup: #e8452c;
+    --ketchup-ink: #ffffff;
+    --scrim: rgba(19, 31, 43, 0.84);
+    --me: #27465f;
+    --sky-top: #8fd3f4;
+    --sky-bot: #eaf7ff;
+    --cloth-a: #d94f3a;
+    --cloth-b: #fff6ee;
+    --plate: #f4f7fa;
+    --plate-edge: #b8c4cf;
+    --bun: #e0a042;
+    --bun-dark: #b9772a;
+    --patty: #6b3a24;
+    --patty-dark: #3f2113;
+    --cheese: #ffc933;
+    --lettuce: #6cc24a;
+    --lettuce-dark: #4a9a34;
+    --tomato: #e0422f;
+    --onion: #e8d7ee;
+    --bacon: #b9402f;
+    --pickle: #7ea83a;
+    --font-display: "Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.55;
+    padding-block: 20px 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { max-width: 460px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font-family: var(--font-display); font-weight: 400; font-size: 36px; line-height: 1.15; margin: 0; text-wrap: balance; }
+  .lead { margin: 4px 0 0; color: var(--muted); }
+
+  .hud { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 0; }
+  .stat small { display: block; font-size: 11px; letter-spacing: 0.08em; color: var(--muted); }
+  .stat b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 24px; line-height: 1.25; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .stage { position: relative; aspect-ratio: 2 / 3; max-width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--sky-bot); touch-action: manipulation; user-select: none; -webkit-user-select: none; cursor: pointer; }
+  canvas { width: 100%; height: 100%; display: block; }
+
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: var(--scrim); text-align: center; padding: 24px; cursor: default; }
+  .overlay h2 { font-family: var(--font-display); font-weight: 400; font-size: 32px; margin: 0; text-wrap: balance; }
+  .overlay p { margin: 0; color: var(--muted); max-width: 30ch; }
+  .overlay .final { font-family: var(--font-display); font-size: 56px; color: var(--ketchup); line-height: 1.1; }
+  button { font: inherit; font-weight: 700; color: var(--ketchup-ink); background: var(--ketchup); border: 0; border-radius: 10px; padding: 11px 28px; margin-top: 6px; cursor: pointer; }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 13px; margin: 0; padding: 0; list-style: none; }
+  .legend li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .dot { width: 12px; height: 12px; flex: none; border-radius: 3px; }
+  .hint { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .board { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .board h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; margin: 0; }
+  .board-note { color: var(--muted); font-size: 12px; min-width: 0; }
+  .nick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .nick label { font-size: 13px; color: var(--muted); }
+  .nick input { flex: 1; min-width: 120px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+  .nick input:focus-visible { outline: 2px solid var(--ketchup); outline-offset: 1px; }
+  .rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .rank li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  .rank li.me { background: var(--me); }
+  .rank .no { font-family: var(--font-display); color: var(--muted); }
+  .rank li:nth-child(-n+3) .no { color: var(--ketchup); }
+  .rank .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rank .ct { font-family: var(--font-display); font-size: 18px; }
+  .rank li.empty { display: block; color: var(--muted); text-align: center; padding: 12px 0; }
+  #ovBoard { font-size: 13px; }
+  .overlay .nick { justify-content: center; flex-wrap: nowrap; width: 100%; max-width: 280px; margin-top: 4px; }
+  .overlay .nick label { color: var(--fg); font-weight: 500; flex: none; }
+  .overlay .nick input { min-width: 0; }
+  .overlay .nick button { margin: 0; padding: 8px 14px; flex: none; }
+  .overlay .ovrank { width: 100%; max-width: 300px; max-height: 180px; overflow-y: auto; touch-action: pan-y; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 6px; }
+  .overlay .rank li { padding: 5px 8px; }
+  .overlay .rank .ct { font-size: 16px; }
+  .overlay.over { gap: 8px; }
+  .overlay.over h2 { font-size: 26px; }
+  .overlay.over .final { font-size: 40px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>버거 타워</h1>
+    <p class="lead">위에서 흔들리는 재료를 타이밍에 맞춰 떨어뜨려 햄버거를 높이 쌓으세요.</p>
+  </header>
+
+  <section class="hud" aria-label="점수판">
+    <div class="stat"><small>쌓은 재료</small><b id="count">0개</b></div>
+    <div class="stat"><small>최고 기록</small><b id="best">0개</b></div>
+    <div class="stat"><small>지금 재료</small><b id="next">패티</b></div>
+  </section>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" aria-label="게임 화면"></canvas>
+    <div class="overlay" id="overlay">
+      <h2 id="ovTitle">햄버거를 쌓아 볼까요?</h2>
+      <div class="final" id="ovFinal" hidden>0개</div>
+      <p id="ovText">화면을 누르거나 스페이스바를 누르면 재료가 떨어집니다. 탑이 기울어 쓰러지면 끝납니다.</p>
+      <p id="ovBoard" hidden></p>
+      <ol class="rank ovrank" id="ovRank" aria-label="전체 랭킹" hidden></ol>
+      <div class="nick" id="nickRow" hidden><label for="nick">닉네임</label><input id="nick" type="text" maxlength="12" placeholder="랭킹에 표시할 이름" autocomplete="off"><button id="regBtn" type="button">등록</button></div>
+      <button id="startBtn" type="button">시작하기</button>
+    </div>
+  </div>
+
+  <ul class="legend">
+    <li><span class="dot" style="background:var(--patty)"></span>패티</li>
+    <li><span class="dot" style="background:var(--cheese)"></span>치즈</li>
+    <li><span class="dot" style="background:var(--lettuce)"></span>양상추</li>
+    <li><span class="dot" style="background:var(--tomato)"></span>토마토</li>
+    <li><span class="dot" style="background:var(--onion)"></span>양파</li>
+    <li><span class="dot" style="background:var(--bacon)"></span>베이컨</li>
+    <li><span class="dot" style="background:var(--pickle)"></span>피클</li>
+  </ul>
+  <p class="hint">아래 재료의 가운데에 맞출수록 안정적입니다. 탑이 한쪽으로 기울어 흔들리면 다음 재료를 반대쪽에 올려 균형을 맞추세요.</p>
+
+  <section class="board" aria-label="랭킹">
+    <div class="board-head"><h2>랭킹 TOP 10</h2><span class="board-note" id="boardNote">불러오는 중입니다.</span></div>
+    <ol class="rank" id="rankList"></ol>
+  </section>
+</main>
+
+<script>
+(function () {
+  var W = 360, H = 540;
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  var css = getComputedStyle(document.documentElement);
+  function tok(n) { return css.getPropertyValue(n).trim(); }
+  var C = {};
+  ['sky-top', 'sky-bot', 'cloth-a', 'cloth-b', 'plate', 'plate-edge', 'bun', 'bun-dark', 'patty', 'patty-dark', 'cheese', 'lettuce', 'lettuce-dark', 'tomato', 'onion', 'bacon', 'pickle', 'ketchup'].forEach(function (k) { C[k] = tok('--' + k); });
+
+  var elCount = document.getElementById('count');
+  var elBest = document.getElementById('best');
+  var elNext = document.getElementById('next');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ovTitle');
+  var ovFinal = document.getElementById('ovFinal');
+  var ovText = document.getElementById('ovText');
+  var startBtn = document.getElementById('startBtn');
+  var stage = document.getElementById('stage');
+
+  var NAMES = { patty: '패티', cheese: '치즈', lettuce: '양상추', tomato: '토마토', onion: '양파', bacon: '베이컨', pickle: '피클' };
+  var SPEC = {
+    patty: { h: 22, min: 108, max: 128 },
+    cheese: { h: 9, min: 100, max: 130 },
+    lettuce: { h: 11, min: 110, max: 140 },
+    tomato: { h: 12, min: 96, max: 122 },
+    onion: { h: 8, min: 90, max: 120 },
+    bacon: { h: 9, min: 100, max: 132 },
+    pickle: { h: 9, min: 90, max: 118 }
+  };
+  var BAG = ['patty', 'patty', 'cheese', 'cheese', 'lettuce', 'lettuce', 'tomato', 'tomato', 'onion', 'bacon', 'bacon', 'pickle'];
+
+  var TABLE_Y = H - 46;
+  var PLATE_H = 8;
+  var BASE_H = 38;
+  var SWING_Y = 96;
+  var LIMIT = 0.95;
+
+  var best = 0;
+  try { best = parseInt(localStorage.getItem('burger-stack-best') || '0', 10) || 0; } catch (e) {}
+  elBest.textContent = best + '개';
+
+  var state = 'ready';
+  var layers, count, cur, cam, camTarget, lean, leanAng, tl, texts, phase = 0, dropCool = 0, clock = 0, topYStable;
+
+  function baseLayer() {
+    var y = TABLE_Y - PLATE_H - BASE_H;
+    return { t: 'bun', x: W / 2, w: 140, h: BASE_H, y: y, seed: 1 };
+  }
+
+  function newItem(first) {
+    var type = first ? 'patty' : BAG[Math.floor(Math.random() * BAG.length)];
+    var sp = SPEC[type];
+    cur = { type: type, w: sp.min + Math.random() * (sp.max - sp.min), h: sp.h, seed: Math.random() * 100, x: W / 2, y: 0, vy: 0 };
+    elNext.textContent = NAMES[type];
+  }
+
+  function reset() {
+    layers = [baseLayer()];
+    count = 0; cam = 0; camTarget = 0; leanAng = 0; tl = null; texts = [];
+    lean = { k: -1, r: 0 };
+    topYStable = layers[0].y;
+    newItem(true);
+    elCount.textContent = '0개';
+  }
+
+  function rnd(seed, i) { var s = Math.sin(seed * 12.9898 + i * 78.233) * 43758.5453; return s - Math.floor(s); }
+
+  function rr(x, y, w, h, r) {
+    r = Math.min(r, h / 2, w / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawIng(type, cx, y, w, h, seed) {
+    var x = cx - w / 2, i;
+    if (type === 'bun') {
+      ctx.fillStyle = C['bun'];
+      rr(x, y, w, h, 16); ctx.fill();
+      ctx.fillRect(x, y, w, h * 0.45);
+      ctx.fillStyle = C['bun-dark'];
+      ctx.globalAlpha = 0.45;
+      rr(x + 6, y + h - 9, w - 12, 6, 3); ctx.fill();
+      ctx.globalAlpha = 1;
+    } else if (type === 'patty') {
+      ctx.fillStyle = C['patty'];
+      rr(x, y, w, h, 10); ctx.fill();
+      ctx.fillStyle = C['patty-dark'];
+      for (i = 0; i < 9; i++) ctx.fillRect(x + 8 + rnd(seed, i) * (w - 18), y + 4 + rnd(seed, i + 20) * (h - 10), 4, 2);
+      ctx.globalAlpha = 0.25; ctx.fillStyle = '#000';
+      ctx.fillRect(x + 6, y + h - 5, w - 12, 3);
+      ctx.globalAlpha = 1;
+    } else if (type === 'cheese') {
+      ctx.fillStyle = C['cheese'];
+      ctx.fillRect(x, y, w, h * 0.55);
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.12, y + h * 0.5); ctx.lineTo(x + w * 0.28, y + h * 0.5); ctx.lineTo(x + w * 0.2, y + h);
+      ctx.moveTo(x + w * 0.62, y + h * 0.5); ctx.lineTo(x + w * 0.82, y + h * 0.5); ctx.lineTo(x + w * 0.72, y + h);
+      ctx.fill();
+    } else if (type === 'lettuce') {
+      ctx.fillStyle = C['lettuce'];
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      for (var px = 0; px <= w; px += 4) ctx.lineTo(x + px, y + h * 0.45 + Math.sin(px * 0.38 + seed) * h * 0.4);
+      ctx.lineTo(x + w, y + h);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = C['lettuce-dark']; ctx.globalAlpha = 0.5;
+      ctx.fillRect(x + 4, y + h - 3, w - 8, 2);
+      ctx.globalAlpha = 1;
+    } else if (type === 'tomato') {
+      ctx.fillStyle = C['tomato'];
+      rr(x, y, w, h, 6); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      rr(x + 8, y + 3, w - 16, 3, 1.5); ctx.fill();
+    } else if (type === 'onion') {
+      ctx.fillStyle = C['onion'];
+      rr(x, y, w, h, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(120,80,140,0.35)';
+      ctx.fillRect(x + 6, y + 2, w - 12, 1.5);
+      ctx.fillRect(x + 10, y + 5, w - 20, 1.5);
+    } else if (type === 'bacon') {
+      ctx.fillStyle = C['bacon'];
+      rr(x, y, w, h, 3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,200,170,0.55)';
+      for (i = 0; i < w / 16; i++) ctx.fillRect(x + 4 + i * 16, y, 7, h);
+    } else if (type === 'pickle') {
+      ctx.fillStyle = C['pickle'];
+      rr(x, y, w, h, 4); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      for (i = 0; i < w / 14; i++) { ctx.beginPath(); ctx.arc(x + 8 + i * 14, y + h / 2, 1.8, 0, 6.28); ctx.fill(); }
+    }
+  }
+
+  function analyze(arr) {
+    var res = { worstK: -1, worstR: 0, failK: -1, failSign: 0 };
+    for (var k = 0; k < arr.length - 1; k++) {
+      var M = 0, S = 0;
+      for (var i = k + 1; i < arr.length; i++) { var m = arr[i].w * arr[i].h; M += m; S += m * arr[i].x; }
+      var r = (S / M - arr[k].x) / (arr[k].w / 2 * LIMIT);
+      if (Math.abs(r) > Math.abs(res.worstR)) { res.worstR = r; res.worstK = k; }
+      if (Math.abs(r) >= 1 && res.failK < 0) { res.failK = k; res.failSign = r > 0 ? 1 : -1; }
+    }
+    return res;
+  }
+
+  function omega() { return Math.min(5.6, 2.4 + count * 0.08); }
+
+  function drop() {
+    if (state !== 'swing' || dropCool > 0 || !cur) return;
+    cur.y = SWING_Y - cam;
+    cur.vy = 160;
+    var top = layers[layers.length - 1];
+    state = Math.abs(cur.x - top.x) >= (top.w + cur.w) / 2 - 2 ? 'miss' : 'fall';
+  }
+
+  function land() {
+    var top = layers[layers.length - 1];
+    var perfect = Math.abs(cur.x - top.x) < 5;
+    var nl = { t: cur.type, x: perfect ? top.x : cur.x, w: cur.w, h: cur.h, y: top.y - cur.h, seed: cur.seed };
+    var arr = layers.concat([nl]);
+    var a = analyze(arr);
+    if (a.failK >= 0) {
+      layers = arr;
+      tl = { k: a.failK, sign: a.failSign, ang: 0, av: 0.25 * a.failSign, fx: 0, fy: 0, fvy: 0, t: 0 };
+      cur = null;
+      state = 'topple';
+      return;
+    }
+    layers = arr;
+    count++;
+    topYStable = nl.y;
+    lean = { k: a.worstK, r: a.worstR };
+    elCount.textContent = count + '개';
+    if (perfect) texts.push({ s: '퍼펙트!', x: nl.x, y: nl.y, life: 0.9 });
+    newItem(false);
+    dropCool = 0.15;
+    state = 'swing';
+  }
+
+  function endGame(title, text) {
+    state = 'over';
+    var isBest = count > best;
+    if (isBest) {
+      best = count; elBest.textContent = best + '개';
+      try { localStorage.setItem('burger-stack-best', String(best)); } catch (e) {}
+    }
+    ovTitle.textContent = title;
+    ovFinal.hidden = false; ovFinal.textContent = count + '개';
+    ovText.textContent = (isBest && count > 0 ? '새 기록입니다. ' : '') + text + ' 최고 기록은 ' + best + '개입니다.';
+    startBtn.textContent = '다시 하기';
+    overlay.hidden = false;
+    startBtn.focus();
+    overlay.classList.add('over');
+    if (board.ready) elOvRank.hidden = false;
+    submitScore(count);
+  }
+
+  /* ---- 랭킹 (Notion DB, /api/scores) ---- */
+  var elNick = document.getElementById('nick');
+  var elNote = document.getElementById('boardNote');
+  var elRank = document.getElementById('rankList');
+  var elOvBoard = document.getElementById('ovBoard');
+  var elOvRank = document.getElementById('ovRank');
+  var elNickRow = document.getElementById('nickRow');
+  var elRegBtn = document.getElementById('regBtn');
+  var board = { ready: false, myBest: 0, pid: '' };
+  try { elNick.value = localStorage.getItem('burger-stack-nick') || ''; } catch (e) {}
+  try { board.myBest = parseInt(localStorage.getItem('burger-stack-submitted') || '0', 10) || 0; } catch (e) {}
+  board.pid = (function () {
+    var id = '';
+    try { id = localStorage.getItem('burger-stack-pid') || ''; } catch (e) {}
+    if (!/^[\w-]{8,40}$/.test(id)) {
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      try { localStorage.setItem('burger-stack-pid', id); } catch (e) {}
+    }
+    return id;
+  })();
+
+  function nickValue() { return (elNick.value || '').trim().slice(0, 12) || '익명'; }
+
+  function renderRank(list) {
+    fillRank(elRank, list, 10);
+    fillRank(elOvRank, list, 50);
+  }
+
+  function fillRank(el, list, max) {
+    el.textContent = '';
+    if (!list.length) {
+      var li0 = document.createElement('li');
+      li0.className = 'empty';
+      li0.textContent = '아직 기록이 없습니다. 첫 기록을 남겨 보세요.';
+      el.appendChild(li0);
+      return;
+    }
+    list.slice(0, max).forEach(function (v, i) {
+      var li = document.createElement('li');
+      if (v.me) li.className = 'me';
+      var no = document.createElement('span'); no.className = 'no'; no.textContent = String(i + 1);
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = String(v.nickname || '익명') + (v.me ? ' (나)' : '');
+      var ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = (Number(v.best) || 0) + '개';
+      li.appendChild(no); li.appendChild(nm); li.appendChild(ct);
+      el.appendChild(li);
+    });
+  }
+
+  function loadRank() {
+    return fetch('/api/scores?pid=' + encodeURIComponent(board.pid), { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(function (list) {
+        board.ready = true;
+        renderRank(list);
+        elNote.textContent = '게임이 끝나면 닉네임을 적고 기록을 등록합니다.';
+      })
+      .catch(function () { elNote.textContent = '랭킹을 불러오지 못했습니다.'; });
+  }
+
+  var pendingScore = 0;
+  function submitScore(n) {
+    pendingScore = 0;
+    elNickRow.hidden = true;
+    elOvBoard.hidden = true;
+    if (!board.ready || n <= 0) return;
+    if (n <= board.myBest) {
+      elOvBoard.textContent = '내 랭킹 기록은 ' + board.myBest + '개입니다.';
+    } else {
+      pendingScore = n;
+      elRegBtn.disabled = false;
+      elNickRow.hidden = false;
+      elOvBoard.textContent = '닉네임을 입력하고 등록하면 랭킹에 올라갑니다.';
+    }
+    elOvBoard.hidden = false;
+  }
+
+  async function register() {
+    var n = pendingScore;
+    if (!n || !board.ready) return;
+    elRegBtn.disabled = true;
+    var nick = nickValue();
+    try {
+      var r = await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: board.pid, nickname: nick, best: n })
+      });
+      if (!r.ok) throw new Error(String(r.status));
+      board.myBest = n; pendingScore = 0;
+      try {
+        localStorage.setItem('burger-stack-nick', nick);
+        localStorage.setItem('burger-stack-submitted', String(n));
+      } catch (e) {}
+      elNickRow.hidden = true;
+      elOvBoard.textContent = '랭킹에 ' + n + '개를 등록했습니다.';
+      loadRank();
+    } catch (e) {
+      elRegBtn.disabled = false;
+      elOvBoard.textContent = '랭킹에 등록하지 못했습니다. 다시 눌러 주세요.';
+    }
+  }
+
+  elRegBtn.addEventListener('click', register);
+  elNick.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); register(); } });
+
+  loadRank();
+  setInterval(function () { if (!document.hidden && state !== 'swing' && state !== 'fall') loadRank(); }, 20000);
+
+  function update(dt) {
+    clock += dt;
+    if (dropCool > 0) dropCool -= dt;
+    var s = state;
+
+    if (s === 'ready' || s === 'swing') {
+      phase += omega() * dt;
+      cur.x = W / 2 + ((W - cur.w) / 2 - 14) * Math.sin(phase);
+    } else if (s === 'fall' || s === 'miss') {
+      cur.vy += 1500 * dt;
+      cur.y += cur.vy * dt;
+      if (s === 'fall') {
+        var top = layers[layers.length - 1];
+        if (cur.y + cur.h >= top.y) land();
+      } else if (cur.y + cam > H + 60) {
+        cur = null;
+        endGame('재료를 놓쳤습니다', '아래 재료에 닿지 못했습니다.');
+      }
+    } else if (s === 'topple') {
+      tl.t += dt;
+      tl.av += tl.sign * 5 * dt;
+      tl.ang += tl.av * dt;
+      if (Math.abs(tl.ang) > 0.5) {
+        tl.fvy += 1300 * dt;
+        tl.fy += tl.fvy * dt;
+        tl.fx += tl.sign * 70 * dt;
+      }
+      if (tl.t > 1.6) endGame('탑이 쓰러졌습니다', '재료를 쌓다가 균형을 잃었습니다.');
+    }
+
+    if (s !== 'ready') {
+      camTarget = Math.max(0, 300 - topYStable);
+      cam += (camTarget - cam) * Math.min(1, dt * 4);
+    }
+
+    var target = 0;
+    if (lean.k >= 0 && s !== 'topple') {
+      var rr0 = Math.min(Math.abs(lean.r), 1);
+      target = (lean.r > 0 ? 1 : -1) * rr0 * rr0 * 0.09;
+    }
+    leanAng += (target - leanAng) * Math.min(1, dt * 8);
+
+    for (var i = texts.length - 1; i >= 0; i--) {
+      texts[i].life -= dt; texts[i].y -= 28 * dt;
+      if (texts[i].life <= 0) texts.splice(i, 1);
+    }
+  }
+
+  function drawScene() {
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, C['sky-top']); g.addColorStop(1, C['sky-bot']);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    var clouds = [[60, 70, 1], [250, 150, 0.8], [140, 300, 1.1], [300, 420, 0.7]];
+    for (var c = 0; c < clouds.length; c++) {
+      var cl = clouds[c];
+      var cy = ((cl[1] + cam * 0.18) % (H + 80)) - 40;
+      var cx = cl[0] + Math.sin(clock * 0.1 + c) * 8;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 16 * cl[2], 0, 6.28); ctx.arc(cx + 18 * cl[2], cy + 4, 13 * cl[2], 0, 6.28); ctx.arc(cx - 17 * cl[2], cy + 5, 12 * cl[2], 0, 6.28);
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(0, cam);
+
+    var rows = Math.ceil((H - cam - TABLE_Y) / 30) + 1;
+    for (var r = 0; r < rows; r++) {
+      for (var q = 0; q < 12; q++) {
+        ctx.fillStyle = (r + q) % 2 === 0 ? C['cloth-a'] : C['cloth-b'];
+        ctx.fillRect(q * 30, TABLE_Y + r * 30, 30, 30);
+      }
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(0, TABLE_Y, W, 4);
+
+    ctx.fillStyle = C['plate-edge'];
+    rr(W / 2 - 100, TABLE_Y - PLATE_H, 200, PLATE_H, 4); ctx.fill();
+    ctx.fillStyle = C['plate'];
+    rr(W / 2 - 100, TABLE_Y - PLATE_H, 200, PLATE_H - 2, 4); ctx.fill();
+
+    var k, n = layers.length;
+    if (state === 'topple' || lean.k >= 0) k = state === 'topple' ? tl.k : lean.k; else k = n - 1;
+    var i;
+    for (i = 0; i <= k && i < n; i++) drawIng(layers[i].t, layers[i].x, layers[i].y, layers[i].w, layers[i].h, layers[i].seed);
+
+    if (k < n - 1) {
+      ctx.save();
+      if (state === 'topple') {
+        var px = layers[k].x + tl.sign * layers[k].w / 2, py = layers[k].y;
+        ctx.translate(px + tl.fx, py + tl.fy); ctx.rotate(tl.ang); ctx.translate(-px, -py);
+      } else {
+        var ang = leanAng;
+        var ar = Math.abs(lean.r);
+        if (ar > 0.7) ang += Math.sin(clock * 9) * (ar - 0.7) / 0.3 * 0.03;
+        var qx = layers[k].x, qy = layers[k].y;
+        ctx.translate(qx, qy); ctx.rotate(ang); ctx.translate(-qx, -qy);
+      }
+      for (i = k + 1; i < n; i++) drawIng(layers[i].t, layers[i].x, layers[i].y, layers[i].w, layers[i].h, layers[i].seed);
+      ctx.restore();
+    }
+
+    if (cur && (state === 'fall' || state === 'miss')) drawIng(cur.type, cur.x, cur.y, cur.w, cur.h, cur.seed);
+    ctx.restore();
+
+    if (cur && (state === 'swing' || state === 'ready')) {
+      ctx.strokeStyle = '#4a5a68'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(W / 2, -10); ctx.lineTo(cur.x, SWING_Y - 6); ctx.stroke();
+      ctx.fillStyle = '#4a5a68';
+      ctx.beginPath(); ctx.arc(cur.x, SWING_Y - 6, 3, 0, 6.28); ctx.fill();
+      drawIng(cur.type, cur.x, SWING_Y, cur.w, cur.h, cur.seed);
+    }
+
+    ctx.font = '22px Jua, sans-serif'; ctx.textAlign = 'center';
+    for (var t = 0; t < texts.length; t++) {
+      var tx = texts[t];
+      ctx.globalAlpha = Math.min(1, tx.life * 2);
+      ctx.fillStyle = C['ketchup'];
+      ctx.fillText(tx.s, tx.x, tx.y + cam - 8);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  var last = 0;
+  function loop(t) {
+    var dt = Math.min(0.033, (t - last) / 1000 || 0);
+    last = t;
+    update(dt);
+    drawScene();
+    requestAnimationFrame(loop);
+  }
+
+  function start() {
+    reset();
+    state = 'swing';
+    dropCool = 0.35;
+    overlay.hidden = true;
+    startBtn.blur();
+    overlay.classList.remove('over');
+    elOvRank.hidden = true;
+  }
+
+  stage.addEventListener('pointerdown', function () { drop(); });
+  window.addEventListener('keydown', function (e) {
+    if ((e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowDown') && state === 'swing') {
+      e.preventDefault();
+      drop();
+    }
+  });
+  startBtn.addEventListener('click', start);
+
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

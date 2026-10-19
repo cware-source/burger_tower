@@ -2,8 +2,9 @@
 
 ## 폴더 구성
 ```
-index.html        게임 화면
+public/index.html 게임 화면
 api/scores.js     랭킹 저장/조회 API (Notion DB 연결)
+vercel.json       배포 설정 (public 폴더를 화면으로 사용)
 package.json      Node 버전 지정
 ```
 
