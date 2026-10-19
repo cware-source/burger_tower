@@ -114,7 +114,7 @@
 
   <section class="hud" aria-label="점수판">
     <div class="stat"><small>쌓은 재료</small><b id="count">0개</b></div>
-    <div class="stat"><small>최고 기록</small><b id="best">0개</b></div>
+    <div class="stat"><small>전체 최고</small><b id="best">-</b></div>
     <div class="stat"><small>지금 재료</small><b id="next">패티</b></div>
   </section>
 
@@ -192,7 +192,7 @@
 
   var best = 0;
   try { best = parseInt(localStorage.getItem('burger-stack-best') || '0', 10) || 0; } catch (e) {}
-  elBest.textContent = best + '개';
+  elBest.textContent = '-';
 
   var state = 'ready';
   var layers, count, cur, cam, camTarget, lean, leanAng, tl, texts, phase = 0, dropCool = 0, clock = 0, topYStable;
@@ -339,12 +339,12 @@
     state = 'over';
     var isBest = count > best;
     if (isBest) {
-      best = count; elBest.textContent = best + '개';
+      best = count;
       try { localStorage.setItem('burger-stack-best', String(best)); } catch (e) {}
     }
     ovTitle.textContent = title;
     ovFinal.hidden = false; ovFinal.textContent = count + '개';
-    ovText.textContent = (isBest && count > 0 ? '새 기록입니다. ' : '') + text + ' 최고 기록은 ' + best + '개입니다.';
+    ovText.textContent = (isBest && count > 0 ? '새 기록입니다. ' : '') + text + ' 내 최고 기록은 ' + best + '개입니다.';
     startBtn.textContent = '다시 하기';
     overlay.hidden = false;
     startBtn.focus();
@@ -407,6 +407,7 @@
       .then(function (list) {
         board.ready = true;
         renderRank(list);
+        elBest.textContent = (list.length ? Number(list[0].best) || 0 : 0) + '개';
         elNote.textContent = '게임이 끝나면 닉네임을 적고 기록을 등록합니다.';
       })
       .catch(function () { elNote.textContent = '랭킹을 불러오지 못했습니다.'; });
